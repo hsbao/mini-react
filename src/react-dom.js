@@ -87,6 +87,44 @@ export function useContext(context) {
   return context._currentValue
 }
 
+export function useRef() {
+  if (hookState[hookIndex]) {
+    return hookState[hookIndex++]
+  } else {
+    hookState[hookIndex] = { current: null }
+    return hookState[hookIndex++]
+  }
+}
+
+/**
+ * useLayoutEffect 和 useEffect 实现原理类似
+ * 区别：
+ * 1. useLayoutEffect是一个微任务。并且是在渲染前执行的
+ * 2. useEffect是一个宏任务，是在渲染后执行的
+ * @param {*} callback 
+ * @param {*} deps 
+ */
+export function useLayoutEffect(callback, deps) {
+  if (hookState[hookIndex]) {
+    const { destroy, oldDeps } = hookState[hookIndex]
+    const everySame = deps.every((item, index) => item === oldDeps[index])
+    if (everySame) {
+      hookIndex++
+    } else {
+      destroy && destroy()
+      queueMicrotask(() => {
+        const destroy = callback()
+        hookState[hookIndex++] = [destroy, deps]
+      })
+    }
+  } else {
+    queueMicrotask(() => {
+      const destroy = callback()
+      hookState[hookIndex++] = [destroy, deps]
+    })
+  }
+}
+
 /**
  * useEffect
  * @param {*} callback 当前渲染完成后，下一个宏任务
